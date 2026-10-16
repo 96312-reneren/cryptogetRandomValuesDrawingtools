@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="referrer" content="no-referrer">
+<title>随机选数器</title>
+<style>
+  :root{
+    --bg:#0b1020; --panel:#141b32; --panel2:#1b2440; --line:#2a3557;
+    --text:#e6ecff; --muted:#8b98c4; --accent:#4f8cff; --accent2:#37d6a3;
+    --danger:#ff6b81; --input:#0e1530;
+    --chip-bg:#22305c; --chip-line:#3a4c8f;
+    --red-bg:#5a1f2a; --red-line:#a04a56; --red-txt:#ffb4bd;
+    --blue-bg:#1c2f5e; --blue-line:#4a6fd0; --blue-txt:#a9c0ff;
+    --seg-on:#1e2a55; --quick-bg:#1e2a4d; --empty:#5a6796;
+    --err-bg:#2a1520; --err-txt:#ffb3bd;
+    --radius:14px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    margin:0; color:var(--text);
+    background:radial-gradient(1200px 600px at 20% -10%, #1a2444 0%, var(--bg) 60%) fixed;
+    font:15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+         "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right)
+             env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  .wrap{max-width:1120px; margin:0 auto; padding:0 16px}
+
+  /* ---------- 顶栏 ---------- */
+  header{border-bottom:1px solid var(--line); background:rgba(14,21,46,.6); backdrop-filter:blur(6px)}
+  .hdr{display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:14px 0}
+  h1{margin:0; font-size:19px; letter-spacing:.4px; font-weight:700}
+  .sub{width:100%; color:var(--muted); font-size:12px; margin-top:-2px}
+  .chips{display:flex; flex-wrap:wrap; gap:8px; margin-left:auto}
+  .chip{
+    background:var(--panel); border:1px solid var(--line); border-radius:999px;
+    padding:5px 12px; font-size:12px; color:var(--muted); white-space:nowrap
+  }
+  .chip b{color:var(--accent2); font-weight:600}
+
+  /* ---------- 布局 ---------- */
+  main{display:grid; grid-template-columns:380px minmax(0,1fr); gap:18px; align-items:start; padding:18px 0 28px}
+  @media (max-width:880px){ main{grid-template-columns:1fr} }
+
+  .card{
+    background:linear-gradient(180deg,var(--panel) 0%, var(--panel2) 100%);
+    border:1px solid var(--line); border-radius:var(--radius);
+    padding:16px; min-width:0;
+  }
+  .card h2{margin:0 0 12px; font-size:13px; color:var(--muted); font-weight:600; letter-spacing:.5px}
+
+  label.f{display:block; font-size:12.5px; color:var(--muted); margin:12px 0 5px}
+  input[type=text]{
+    width:100%; background:var(--input); color:var(--text);
+    border:1px solid var(--line); border-radius:9px;
+    padding:11px 12px; font-size:16px; outline:none; font-family:inherit;
+  }
+  input[type=text]:focus{border-color:var(--accent)}
+  input::placeholder{color:#48557f}
+  .row{display:flex; gap:9px}
+  .row > *{flex:1; min-width:0}
+  .hint{font-size:11.5px; color:var(--empty); margin-top:5px; line-height:1.5}
+
+  /* 分段开关 */
+  .seg{display:flex; border:1px solid var(--line); border-radius:10px; overflow:hidden; background:var(--input)}
+  .seg button{
+    flex:1; background:transparent; color:var(--muted); border:none;
+    padding:12px 6px; font-size:13.5px; font-family:inherit; cursor:pointer;
+    transition:background .12s, color .12s; min-height:44px
+  }
+  .seg button + button{border-left:1px solid var(--line)}
+  .seg button[aria-pressed=true]{background:var(--seg-on); color:var(--text); font-weight:600}
+  .seg button:active{background:#26325c}
+
+  button.primary{
+    width:100%; margin-top:16px; border:none; border-radius:11px;
+    background:linear-gradient(90deg,var(--accent),#6aa1ff); color:#fff;
+    font-size:16px; font-weight:700; font-family:inherit;
+    padding:14px; cursor:pointer; min-height:48px; transition:filter .15s
+  }
+  button.primary:hover{filter:brightness(1.1)}
+  button.primary:active{filter:brightness(.94)}
+  button.primary:disabled{opacity:.5; cursor:not-allowed}
+
+  .quick{display:flex; flex-wrap:wrap; gap:8px; margin-top:8px}
+  .quick button{
+    background:var(--quick-bg); color:var(--text); border:1px solid var(--line);
+    font-family:inherit; font-size:13px; padding:9px 13px; border-radius:9px;
+    cursor:pointer; min-height:40px; transition:border-color .12s, color .12s
+  }
+  .quick button:hover{border-color:var(--accent); color:#fff}
+  .quick button:active{background:#27355f}
+
+  /* ---------- 结果区 ---------- */
+  .nums{
+    background:#0b1226; border:1px solid var(--line); border-radius:11px;
+    padding:16px; min-height:180px; display:flex; flex-wrap:wrap;
+    gap:9px; align-content:flex-start; overflow:hidden
+  }
+  .num{
+    background:var(--chip-bg); border:1px solid var(--chip-line);
+    border-radius:10px; padding:7px 13px; color:var(--accent2);
+    font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:19px; font-weight:700; animation:pop .16s ease-out both
+  }
+  .num.red{background:var(--red-bg); border-color:var(--red-line); color:var(--red-txt)}
+  .num.blue{background:var(--blue-bg); border-color:var(--blue-line); color:var(--blue-txt)}
+  .num.big{font-size:36px; padding:12px 22px; border-radius:15px}
+  .sep{align-self:center; color:var(--muted); font-weight:700; padding:0 2px}
+  @keyframes pop{from{transform:scale(.7); opacity:0} to{transform:scale(1); opacity:1}}
+  @media (prefers-reduced-motion:reduce){ .num{animation:none} }
+  .empty{color:var(--empty); font-size:13.5px; margin:auto; text-align:center; line-height:1.7}
+
+  .meta{color:var(--muted); font-size:12.5px; margin-top:11px; word-break:break-word}
+  .err{
+    display:none; background:var(--err-bg); border:1px solid var(--danger);
+    color:var(--err-txt); border-radius:9px; padding:10px 12px;
+    font-size:13px; margin-top:11px; word-break:break-word
+  }
+  .ops{display:flex; flex-wrap:wrap; gap:9px; margin-top:12px}
+  .ops button{
+    background:transparent; border:1px solid var(--line); color:var(--text);
+    border-radius:9px; padding:10px 14px; font-size:13.5px; font-family:inherit;
+    cursor:pointer; min-height:42px; transition:border-color .12s
+  }
+  .ops button:hover{border-color:var(--accent)}
+  .ops button:disabled{opacity:.45; cursor:not-allowed}
+
+  /* ---------- 历史 ---------- */
+  .hist{display:none}
+  .hist.show{display:block}
+  .histbox{
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+    padding:14px 16px; margin-bottom:28px
+  }
+  .histbox h3{margin:0 0 10px; font-size:12.5px; color:var(--muted); font-weight:600}
+  .histitem{
+    display:flex; gap:10px; padding:6px 0; border-bottom:1px dashed var(--line);
+    font-size:13px; color:var(--muted)
+  }
+  .histitem:last-child{border-bottom:none}
+  .histitem .idx{color:var(--accent); flex:0 0 20px}
+  .histitem .txt{
+    color:var(--text); font-family:ui-monospace, Menlo, Consolas, monospace;
+    word-break:break-all
+  }
+  footer{color:var(--empty); font-size:12px; text-align:center; padding:0 0 26px; line-height:1.8}
+  footer code{color:var(--muted); font-family:ui-monospace, Menlo, Consolas, monospace}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap hdr">
+    <h1>随机选数器</h1>
+    <div class="chips">
+      <span class="chip">引擎 <b id="c-engine">crypto.getRandomValues</b></span>
+      <span class="chip">状态 <b id="c-state">检查中</b></span>
+      <span class="chip">耗时 <b id="c-ms">-</b></span>
+    </div>
+    <div class="sub">闭区间 [min, max] 随机整数 · 指定数字列表抽取 · 熵源 Web Crypto（CSPRNG）</div>
+  </div>
+</header>
+
+<div class="wrap">
+  <main>
+    <!-- 左：配置 -->
+    <section class="card">
+      <h2>抽取配置</h2>
+
+      <label class="f">输入方式</label>
+      <div class="seg" id="seg-mode" role="group" aria-label="输入方式">
+        <button type="button" data-mode="range" aria-pressed="true">区间</button>
+        <button type="button" data-mode="list" aria-pressed="false">指定列表</button>
+      </div>
+
+      <!-- 区间模式 -->
+      <div id="pane-range">
+        <label class="f">区间下界 / 上界</label>
+        <div class="row">
+          <input id="in-min" type="text" inputmode="numeric" autocomplete="off" value="1" aria-label="区间下界 min">
+          <input id="in-max" type="text" inputmode="numeric" autocomplete="off" value="100" aria-label="区间上界 max">
+        </div>
+        <div class="hint">闭区间，两端都会包含；只接受整数。</div>
+      </div>
+
+      <!-- 列表模式 -->
+      <div id="pane-list" hidden>
+        <label class="f">候选数字列表</label>
+        <input id="in-list" type="text" autocomplete="off" autocapitalize="off"
+               spellcheck="false" placeholder="例如：3, 7, 13, 99" aria-label="候选数字列表">
+        <div class="hint">分隔符：逗号 / 空格 / 分号；重复值只算一次。</div>
+      </div>
+
+      <label class="f">抽取个数（1 ~ 100）</label>
+      <input id="in-count" type="text" inputmode="numeric" autocomplete="off" value="5" aria-label="抽取个数">
+
+      <label class="f" id="lab-exclude">排除数字（可选，逗号分隔，超出区间自动忽略）</label>
+      <input id="in-exclude" type="text" autocomplete="off" autocapitalize="off"
+             spellcheck="false" placeholder="例如：3, 7, 13" aria-label="排除数字">
+
+      <label class="f">是否允许重复</label>
+      <div class="seg" id="seg-uniq" role="group" aria-label="是否允许重复">
+        <button type="button" data-uniq="1" aria-pressed="true">不重复（无放回）</button>
+        <button type="button" data-uniq="0" aria-pressed="false">允许重复（有放回）</button>
+      </div>
+
+      <button class="primary" id="btn-go">随机抽取</button>
+
+      <label class="f" style="margin-top:18px">常用场景</label>
+      <div class="quick">
+        <button type="button" data-min="1" data-max="6"   data-count="5" data-uniq="1">掷 5 颗骰子</button>
+        <button type="button" data-min="1" data-max="30"  data-count="1" data-uniq="1">点名 1~30</button>
+        <button type="button" data-min="1" data-max="99"  data-count="6" data-uniq="1">抽 6 个不重复</button>
+        <button type="button" id="btn-dlb">双色球</button>
+      </div>
+    </section>
+
+    <!-- 右：结果 -->
+    <section class="card">
+      <h2>抽取结果</h2>
+      <div class="nums" id="nums"><div class="empty">点击「随机抽取」或常用场景开始</div></div>
+      <div class="meta" id="meta"></div>
+      <div class="err" id="err" role="alert"></div>
+      <div class="ops">
+        <button type="button" id="btn-copy">复制结果</button>
+        <button type="button" id="btn-hist">查看历史记录</button>
+      </div>
+    </section>
+  </main>
+
+  <div class="hist" id="hist">
+    <div class="histbox">
+      <h3>历史记录（本次打开）</h3>
+      <div id="histlist"><div class="empty" style="margin:0;text-align:left">暂无记录</div></div>
+    </div>
+  </div>
+
+  <footer>
+    熵源 <code>crypto.getRandomValues</code>（操作系统 CSPRNG）· 全部状态仅存于本页面内存，关闭即清空<br>
+    单文件离线可用，无网络请求、无外部依赖
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============================================================
+     1. 熵源：crypto.getRandomValues（无模偏拒绝采样）
+     ============================================================ */
+
+  var POW_32 = 4294967296;          // 2^32
+  var POW_53 = 9007199254740992;    // 2^53
+  var MAX_SAFE = Number.MAX_SAFE_INTEGER;
+
+  var WORDS = new Uint32Array(64);
+  var wordIdx = WORDS.length;       // 触发首次填充
+
+  function next32() {
+    if (wordIdx >= WORDS.length) {
+      crypto.getRandomValues(WORDS);
+      wordIdx = 0;
+    }
+    return WORDS[wordIdx++];
+  }
+
+  // 均匀 53 位整数：[0, 2^53)
+  function rand53() {
+    var hi = next32() >>> 5;   // 27 bit
+    var lo = next32() >>> 6;   // 26 bit
+    return hi * 67108864 + lo; // 2^26
+  }
+
+  // 均匀整数：[0, limit)，无模偏
+  function below(limit) {
+    if (limit <= 1) return 0;
+    if (limit <= POW_32) {
+      var t32 = POW_32 % limit;
+      for (;;) {
+        var x = next32();
+        if (x >= t32) return x % limit;
+      }
+    }
+    var t53 = POW_53 % limit;
+    if (t53 === 0) return rand53() % limit;
+    var m = POW_53 - t53;
+    for (;;) {
+      var v = rand53();
+      if (v < m) return v % limit;
+    }
+  }
+
+  /* ============================================================
+     2. 核心逻辑（语义与桌面版一致）
+     ============================================================ */
+
+  var MAX_COUNT = 100;
+  var SPAN_MATERIALIZE_LIMIT = 200000;
+
+  function RngError(msg) { this.name = "RngError"; this.message = msg; }
+  RngError.prototype = Object.create(Error.prototype);
+
+  function checkCount(count) {
+    if (!(count >= 1 && count <= MAX_COUNT)) {
+      throw new RngError("count 需在 1 ~ 100 之间");
+    }
+  }
+
+  // 部分 Fisher–Yates + 有放回抽样
+  function sampleFrom(pool, count, unique) {
+    var n = pool.length;
+    if (unique) {
+      var k = Math.min(count, n);
+      var a = pool.slice();
+      for (var i = 0; i < k; i++) {
+        var j = i + below(n - i);
+        var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+      }
+      return a.slice(0, k);
+    }
+    var out = new Array(count);
+    for (var t = 0; t < count; t++) out[t] = pool[below(n)];
+    return out;
+  }
+
+  // 区间模式
+  function pickInts(min, max, count, exclude, unique) {
+    if (min > max) throw new RngError("下界 " + min + " 不能大于上界 " + max);
+    checkCount(count);
+
+    var exSet = new Set();
+    for (var i = 0; i < exclude.length; i++) {
+      var e = exclude[i];
+      if (e >= min && e <= max) exSet.add(e);
+    }
+
+    var span = max - min + 1;
+    if (!Number.isSafeInteger(span) || span < 1) {
+      throw new RngError("区间跨度过大，超出可精确表示的范围，请缩小 min 与 max 的差距");
+    }
+
+    var available = span - exSet.size;
+    if (available <= 0) {
+      throw new RngError("排除后 [min, max] 区间内已无可选数字，请调整区间或排除数");
+    }
+    if (unique && count > available) {
+      throw new RngError("不重复抽取要求 count(" + count + ") ≤ 可选数字数量(" + available +
+        ")，请增大区间、减少排除数，或将 unique 设为 false");
+    }
+
+    // 区间不大：构造候选池，保证严格正确
+    if (span <= SPAN_MATERIALIZE_LIMIT) {
+      var pool = [];
+      for (var v = min; v <= max; v++) if (!exSet.has(v)) pool.push(v);
+      return sampleFrom(pool, count, unique);
+    }
+
+    // 超大区间：拒绝采样，避免构造巨型数组
+    var picked, seen, x;
+    if (unique) {
+      picked = []; seen = new Set();
+      while (picked.length < count) {
+        x = min + below(span);
+        if (exSet.has(x) || seen.has(x)) continue;
+        seen.add(x); picked.push(x);
+      }
+      return picked;
+    }
+    picked = [];
+    while (picked.length < count) {
+      x = min + below(span);
+      if (!exSet.has(x)) picked.push(x);
+    }
+    return picked;
+  }
+
+  // 指定列表模式：值优先（先去重，再按值排除，最后抽索引）
+  function pickFromList(items, count, exclude, unique) {
+    checkCount(count);
+    if (!items.length) throw new RngError("候选列表为空，请填写要抽取的数字");
+
+    var seen = new Set(), pool = [];
+    for (var i = 0; i < items.length; i++) {
+      var v = items[i];
+      if (!seen.has(v)) { seen.add(v); pool.push(v); }
+    }
+    if (exclude.length) {
+      var ex = new Set(exclude);
+      pool = pool.filter(function (v) { return !ex.has(v); });
+    }
+    if (!pool.length) {
+      throw new RngError("候选列表去重并排除后已无可选数字，请调整列表或排除数");
+    }
+    var n = pool.length;
+    if (unique && count > n) {
+      throw new RngError("不重复抽取要求 count(" + count + ") ≤ 可选数字数量(" + n +
+        ")，请减少抽取个数、减少排除数，或将 unique 设为 false");
+    }
+    return sampleFrom(pool, count, unique);
+  }
+
+  /* ============================================================
+     3. 文本解析
+     ============================================================ */
+
+  var INT_RE = /^-?\d+$/;
+
+  function parseIntList(text, what) {
+    var toks = String(text).split(/[,，;；\s]+/);
+    var out = [];
+    for (var i = 0; i < toks.length; i++) {
+      var t = toks[i].trim();
+      if (!t) continue;
+      if (!INT_RE.test(t)) throw new RngError(what + '中的 "' + t + '" 不是整数');
+      var v = Number(t);
+      if (Number.isSafeInteger(v)) out.push(v);
+      // 超出安全整数范围：视作落在区间外，忽略（与桌面版行为一致）
+    }
+    return out;
+  }
+
+  function countDistinct(arr) {
+    var s = new Set();
+    for (var i = 0; i < arr.length; i++) s.add(arr[i]);
+    return s.size;
+  }
+
+  function fmtList(arr) {
+    return arr.map(function (v) { return String(v); }).join(", ");
+  }
+
+  /* ============================================================
+     4. 页面状态与 DOM
+     ============================================================ */
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  var elModeSeg = $("seg-mode"), elUniqSeg = $("seg-uniq");
+  var paneRange = $("pane-range"), paneList = $("pane-list");
+  var inMin = $("in-min"), inMax = $("in-max"), inList = $("in-list");
+  var inCount = $("in-count"), inExclude = $("in-exclude");
+  var labExclude = $("lab-exclude");
+  var elNums = $("nums"), elMeta = $("meta"), elErr = $("err");
+  var elMs = $("c-ms"), elState = $("c-state");
+  var elHist = $("hist"), elHistList = $("histlist");
+
+  var state = {
+    listMode: false,
+    unique: true,
+    current: null,   // { text, meta, nums }
+    history: []      // [{ text, meta }]
+  };
+
+  function showErr(msg) {
+    if (msg) { elErr.style.display = "block"; elErr.textContent = "出错了：" + msg; }
+    else { elErr.style.display = "none"; elErr.textContent = ""; }
+  }
+
+  /* ============================================================
+     5. 渲染
+     ============================================================ */
+
+  function addChip(text, cls, big) {
+    var d = document.createElement("div");
+    d.className = "num" + (cls ? " " + cls : "") + (big ? " big" : "");
+    d.textContent = text;
+    return d;
+  }
+
+  function renderNormal(nums) {
+    elNums.textContent = "";
+    if (!nums.length) {
+      elNums.innerHTML = '<div class="empty">（无结果）</div>';
+      return;
+    }
+    if (nums.length === 1) {
+      elNums.appendChild(addChip(String(nums[0]), "", true));
+      return;
+    }
+    for (var i = 0; i < nums.length; i++) {
+      var d = addChip(String(nums[i]), "", false);
+      d.style.animationDelay = (i * 12) + "ms";
+      elNums.appendChild(d);
+    }
+  }
+
+  function renderBalls(reds, blue) {
+    elNums.textContent = "";
+    for (var i = 0; i < reds.length; i++) {
+      var d = addChip(String(reds[i]).padStart(2, "0"), "red", false);
+      d.style.animationDelay = (i * 12) + "ms";
+      elNums.appendChild(d);
+    }
+    var sep = document.createElement("div");
+    sep.className = "sep";
+    sep.textContent = "+";
+    elNums.appendChild(sep);
+    elNums.appendChild(addChip(String(blue).padStart(2, "0"), "blue", true));
+  }
+
+  function renderEmpty(msg) {
+    elNums.textContent = "";
+    var d = document.createElement("div");
+    d.className = "empty";
+    d.textContent = msg;
+    elNums.appendChild(d);
+  }
+
+  function pushHistory(meta, text) {
+    state.history.unshift({ meta: meta, text: text });
+    if (state.history.length > 50) state.history.pop();
+    renderHistory();
+  }
+
+  function renderHistory() {
+    if (!state.history.length) {
+      elHistList.innerHTML = '<div class="empty" style="margin:0;text-align:left">暂无记录</div>';
+      return;
+    }
+    elHistList.textContent = "";
+    for (var i = 0; i < state.history.length; i++) {
+      var h = state.history[i];
+      var row = document.createElement("div");
+      row.className = "histitem";
+      var idx = document.createElement("span");
+      idx.className = "idx";
+      idx.textContent = (i + 1) + ".";
+      var txt = document.createElement("span");
+      txt.className = "txt";
+      txt.textContent = h.text;
+      row.title = h.meta;
+      row.appendChild(idx);
+      row.appendChild(txt);
+      elHistList.appendChild(row);
+    }
+  }
+
+  /* ============================================================
+     6. 表单读取与校验
+     ============================================================ */
+
+  function readCount() {
+    var raw = inCount.value.trim();
+    if (raw === "") throw new RngError("请填写抽取个数 count（1~100）");
+    if (!INT_RE.test(raw)) throw new RngError("抽取个数 count 不是整数");
+    var c = Number(raw);
+    if (!(c >= 1 && c <= MAX_COUNT)) throw new RngError("count 需在 1 ~ 100 之间");
+    return c;
+  }
+
+  function readBound(el, emptyMsg, badMsg) {
+    var raw = el.value.trim();
+    if (raw === "") throw new RngError(emptyMsg);
+    if (!INT_RE.test(raw)) throw new RngError(badMsg);
+    var v = Number(raw);
+    if (!Number.isSafeInteger(v)) throw new RngError(badMsg);
+    return v;
+  }
+
+  /* ============================================================
+     7. 动作
+     ============================================================ */
+
+  function elapsed(t0) { return performance.now() - t0; }
+
+  // 浏览器的 performance.now() 会被降精度（常见 100µs），
+  // 这种量级的抽取往往测出 0，直接显示 "0.000 ms" 会让人误以为没跑，因此单独格式化。
+  function fmtMs(ms) {
+    if (!(ms > 0.05)) return "<0.1 ms";
+    return ms.toFixed(3) + " ms";
+  }
+
+  function doPick() {
+    showErr(null);
+    try {
+      var unique = state.unique;
+      var exclude = parseIntList(inExclude.value, "排除数字");
+      var count = readCount();
+
+      if (state.listMode) {
+        var raw = inList.value.trim();
+        if (raw === "") throw new RngError("请填写候选数字列表（整数，用逗号 / 空格分隔）");
+        var items = parseIntList(raw, "候选列表");
+
+        var t0 = performance.now();
+        var nums = pickFromList(items, count, exclude, unique);
+        var ms = elapsed(t0);
+        elMs.textContent = fmtMs(ms);
+
+        var meta = "候选列表 " + countDistinct(items) + " 个 · " + count + " 个 · " +
+                   (unique ? "不重复" : "允许重复") +
+                   (exclude.length ? " · 排除 {" + fmtList(exclude) + "}" : "") +
+                   " · 耗时 " + fmtMs(ms);
+        var text = fmtList(nums);
+        state.current = { nums: nums, meta: meta, text: text };
+        elMeta.textContent = meta;
+        renderNormal(nums);
+        pushHistory(meta, text);
+      } else {
+        var min = readBound(inMin, "请填写区间下界 min（整数）", "区间下界 min 不是整数");
+        var max = readBound(inMax, "请填写区间上界 max（整数）", "区间上界 max 不是整数");
+
+        var t1 = performance.now();
+        var nums2 = pickInts(min, max, count, exclude, unique);
+        var ms2 = elapsed(t1);
+        elMs.textContent = fmtMs(ms2);
+
+        var exIn = exclude.filter(function (v) { return v >= min && v <= max; });
+        exIn = Array.from(new Set(exIn)).sort(function (a, b) { return a - b; });
+        var meta2 = "区间 [" + min + ", " + max + "] · " + count + " 个 · " +
+                    (unique ? "不重复" : "允许重复") +
+                    (exIn.length ? " · 排除 {" + fmtList(exIn) + "}" : "") +
+                    " · 耗时 " + fmtMs(ms2);
+        var text2 = fmtList(nums2);
+        state.current = { nums: nums2, meta: meta2, text: text2 };
+        elMeta.textContent = meta2;
+        renderNormal(nums2);
+        pushHistory(meta2, text2);
+      }
+    } catch (e) {
+      if (e instanceof RngError) {
+        showErr(e.message);
+        state.current = null;
+        elMeta.textContent = "";
+        renderEmpty("（无结果）");
+      } else {
+        showErr("内部错误：" + (e && e.message ? e.message : String(e)));
+        if (window.console) console.error(e);
+      }
+    }
+  }
+
+  function doBall() {
+    showErr(null);
+    try {
+      var t0 = performance.now();
+      var reds = pickInts(1, 33, 6, [], true);
+      var blue = pickInts(1, 16, 1, [], true)[0];
+      var ms = elapsed(t0);
+      reds.sort(function (a, b) { return a - b; });
+      elMs.textContent = fmtMs(ms);
+
+      var meta = "双色球 · 红球 6 个（1~33，不重复） + 蓝球 1 个（1~16）";
+      var text = "红球 " + reds.map(function (v) { return String(v).padStart(2, "0"); }).join(" ") +
+                 " + 蓝球 " + String(blue).padStart(2, "0");
+      state.current = { nums: reds.concat([blue]), meta: meta, text: text };
+      elMeta.textContent = meta;
+      renderBalls(reds, blue);
+      pushHistory(meta, text);
+    } catch (e) {
+      showErr(e && e.message ? e.message : String(e));
+    }
+  }
+
+  function quickScene(btn) {
+    setMode("range");
+    state.unique = btn.dataset.uniq === "1";
+    syncUniq();
+    inMin.value = btn.dataset.min;
+    inMax.value = btn.dataset.max;
+    inCount.value = btn.dataset.count;
+    inExclude.value = "";
+    doPick();
+  }
+
+  function copyResult() {
+    if (!state.current) {
+      showErr("还没有结果可复制");
+      return;
+    }
+    var text = state.current.text;
+    var done = function () {
+      var b = $("btn-copy");
+      var old = "复制结果";
+      b.textContent = "已复制 ✓";
+      b.disabled = true;
+      setTimeout(function () { b.textContent = old; b.disabled = false; }, 1200);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text, done); });
+    } else {
+      fallbackCopy(text, done);
+    }
+  }
+
+  function fallbackCopy(text, done) {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.cssText = "position:fixed;top:-1000px;opacity:0";
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length);
+    try { document.execCommand("copy"); } catch (e) { /* ignore */ }
+    document.body.removeChild(ta);
+    done();
+  }
+
+  /* ============================================================
+     8. 界面联动
+     ============================================================ */
+
+  function setMode(mode) {
+    state.listMode = (mode === "list");
+    paneRange.hidden = state.listMode;
+    paneList.hidden = !state.listMode;
+    var btns = elModeSeg.querySelectorAll("button");
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].setAttribute("aria-pressed", String(btns[i].dataset.mode === mode));
+    }
+    labExclude.textContent = state.listMode
+      ? "排除数字（可选；按值去掉列表中的该数字）"
+      : "排除数字（可选，逗号分隔，超出区间自动忽略）";
+  }
+
+  function syncUniq() {
+    var btns = elUniqSeg.querySelectorAll("button");
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].setAttribute("aria-pressed", String((btns[i].dataset.uniq === "1") === state.unique));
+    }
+  }
+
+  elModeSeg.addEventListener("click", function (ev) {
+    var b = ev.target.closest("button");
+    if (b) setMode(b.dataset.mode);
+  });
+
+  elUniqSeg.addEventListener("click", function (ev) {
+    var b = ev.target.closest("button");
+    if (!b) return;
+    state.unique = b.dataset.uniq === "1";
+    syncUniq();
+  });
+
+  $("btn-go").addEventListener("click", doPick);
+  $("btn-dlb").addEventListener("click", doBall);
+  $("btn-copy").addEventListener("click", copyResult);
+
+  $("btn-hist").addEventListener("click", function () {
+    elHist.classList.toggle("show");
+    if (elHist.classList.contains("show")) {
+      renderHistory();
+      elHist.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  });
+
+  var quickBtns = document.querySelectorAll(".quick button[data-min]");
+  for (var q = 0; q < quickBtns.length; q++) {
+    quickBtns[q].addEventListener("click", function () { quickScene(this); });
+  }
+
+  // 回车即抽取
+  [inMin, inMax, inList, inCount, inExclude].forEach(function (el) {
+    el.addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter") { ev.preventDefault(); doPick(); }
+    });
+  });
+
+  /* ============================================================
+     9. 启动自检
+     ============================================================ */
+
+  (function boot() {
+    setMode("range");
+    syncUniq();
+    if (!(window.crypto && typeof window.crypto.getRandomValues === "function")) {
+      elState.textContent = "不可用";
+      showErr("当前环境不支持 crypto.getRandomValues，请使用新版 Chrome / Edge / Firefox 打开。");
+      $("btn-go").disabled = true;
+      return;
+    }
+    // 真实取一次熵，确认可用
+    try {
+      var probe = new Uint8Array(16);
+      crypto.getRandomValues(probe);
+      elState.textContent = "正常";
+    } catch (e) {
+      elState.textContent = "异常";
+      showErr("crypto.getRandomValues 调用失败：" + (e && e.message ? e.message : e));
+    }
+  })();
+})();
+</script>
+</body>
+</html>
